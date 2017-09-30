@@ -24,7 +24,7 @@ int Server::Open(const string& path)
     struct sockaddr_un server_address;
     unlink(domain);
     int server_sockfd = ::socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    cout << "path:" << domain << "fd:" << server_sockfd << endl;
+    cout << "path: " << domain << "fd: " << server_sockfd << endl;
     server_address.sun_family = AF_UNIX;
     strcpy (server_address.sun_path, domain);
     int server_len = sizeof (server_address);
@@ -35,16 +35,14 @@ int Server::Open(const string& path)
 
 void Server::Loop()
 {
-    cout << "Loop" << endl;
+    cout << __FUNCTION__ << endl;
     int server_sockfd = sockFd;
-    cout << "fd: " << sockFd << endl;
     while(isRun)
     {
-        int client_sockfd;
         struct sockaddr_un client_address;
-        int client_len;
-        client_sockfd = ::accept(server_sockfd, (struct sockaddr *)&client_address, (socklen_t *)&client_len);
-        cout << "new FD:" << client_sockfd << endl;
+        int client_len = sizeof(client_address);
+        int client_sockfd = ::accept(server_sockfd, (struct sockaddr *)&client_address, (socklen_t *)&client_len);
+        cout << "new FD:" << client_sockfd << " errno: " << errno<<"-" <<strerror(errno) << endl;
         if(client_sockfd < 0)
             continue;
         slist.push_back(client_sockfd);
@@ -55,6 +53,7 @@ void Server::LoopStart()
 {
     sockFd = Open(domainPath);
     isRun = true;
+//    Loop();
     thrd = std::thread(thrdRun<Server, &Server::Loop>, this);
 }
 

@@ -1,0 +1,5 @@
+autoreconf --install
+./configure --host=arm-linux-gnueabi
+make
+make pack
+make -C test release
