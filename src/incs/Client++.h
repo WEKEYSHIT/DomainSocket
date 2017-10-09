@@ -2,7 +2,6 @@
 #define __CLINET_PLUSPLUS_H__
 
 #include "Client.h"
-#include <stdio.h>
 
 class Client
 {
@@ -18,23 +17,23 @@ private:
 
 public:
     template<class T, void (T::*method)(unsigned char*, int)>
-    static inline int Start(const T* object)
+    static inline int Start(const T* object, const char* domain = DEF_DOMAIN, bool isFile = DEF_TYPE)
     {
         obj = (void*)object;
-        fd = ClientStart(onMessage<T, method>);
+        fd = ClientStart(onMessage<T, method>, domain, isFile);
         return fd;
     }
 
-    static inline int Start(MesgCb cbk)
+    static inline int Start(MesgCb cbk, const char* domain =DEF_DOMAIN , bool isFile = DEF_TYPE)
     {
-        fd = ClientStart(cbk);
+        fd = ClientStart(cbk, domain, isFile);
         return fd;
     }
 
     static inline int Fd(){return fd;}
 };
-int Client::fd = 0;
-void* Client::obj = NULL;
+int Client::fd = -1;
+void* Client::obj = nullptr;
 
 #endif
 

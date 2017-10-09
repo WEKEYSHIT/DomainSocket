@@ -3,9 +3,9 @@
 
 using namespace std;
 
-void* newServer(const char* domain, int len)
+void* NewServer(const char* domain, int isFile)
 {
-    return (void*)new Server(string(domain, len));
+    return (void*)new Server(string(domain), isFile);
 }
 
 void Broadcast(void* obj, const char* data, int dataLen)
@@ -14,7 +14,7 @@ void Broadcast(void* obj, const char* data, int dataLen)
     s->Broadcast(string(data, dataLen));
 }
 
-void delServer(void* obj)
+void DelServer(void* obj)
 {
     delete (Server*)obj;
 }

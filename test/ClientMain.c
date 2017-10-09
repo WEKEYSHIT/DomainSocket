@@ -1,9 +1,16 @@
 #include "Client.h"
 #include <stdio.h>
 
+int err = 0;
 void onMessage(unsigned char* message, int mesgLen)
 {
     printf("---%s: len %d\n",__FUNCTION__, mesgLen);
+    if(mesgLen < 0)
+    {
+        err = 1;
+        return;
+    }
+        
     fwrite(message, mesgLen, 1, stdout);
     fwrite("\n", 1, 1, stdout);
     fflush(stdout);
@@ -11,18 +18,18 @@ void onMessage(unsigned char* message, int mesgLen)
 
 void loop()
 {
-    while(1) sleep(1);
+    while(!err) sleep(1);
 }
 #if 1
 int main()
 {
-    ClientStart(onMessage);
+    while(ClientStartSimple(onMessage) < 0) sleep(1);
     loop();
 }
 #else
 int main()
 {
-    int fd = ClientStart(NULL);
+    int fd = ClientStartSimple(NULL);
     while(1)
     {
         char buff[1024];

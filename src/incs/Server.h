@@ -1,6 +1,8 @@
 #ifndef __SERVER_H__
 #define __SERVER_H__
 
+#include "Domain.h"
+
 #ifdef __cplusplus
 
 #include <string>
@@ -10,7 +12,7 @@
 class Server
 {
 public:
-    Server(const std::string& domain);
+    Server(const std::string& domain = DEF_DOMAIN, bool isFile = DEF_TYPE);
     ~Server();
     void Broadcast(const std::string& data);
     void LoopStop();
@@ -19,10 +21,11 @@ private:
     SafeList slist;
     int sockFd;
     std::string domainPath;
+    bool isFile;
     std::thread thrd;
 
     void LoopStart();
-    int Open(const std::string& path);
+    int Open(const std::string& path, bool isFile);
     void Loop();
     int Send(int socket, const std::string& data);
 
@@ -36,9 +39,13 @@ private:
 #ifdef __cplusplus
 extern "C" {
 #endif
-void* newServer(const char* domain, int len);
+void* NewServer(const char* domain, int isFile);
 void Broadcast(void* obj, const char* data, int dataLen);
-void delServer(void* obj);
+void DelServer(void* obj);
+inline void* NewServerSimple()
+{
+    return NewServer(DEF_DOMAIN, DEF_TYPE);
+}
 #ifdef __cplusplus
 }
 #endif

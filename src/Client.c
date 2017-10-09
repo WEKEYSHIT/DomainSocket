@@ -1,18 +1,14 @@
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <stdio.h>
-#include <sys/un.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 
+#include "CommonDef.h"
 #include "Client.h"
-
-#define DOMAIN "/tmp/server_socket"
 
 static MesgCb onMessage = NULL;
 static volatile int sockfd = -1;
+static pthread_t tid = -1;
 
 static void ClientClose()
 {
@@ -20,24 +16,27 @@ static void ClientClose()
     {
         close(sockfd);
         sockfd = -1;
+        if(onMessage)
+            onMessage(NULL, -1);
+        onMessage = NULL;
     }
 }
 
-static int ClientOpen(const char* domain, int len)
+static int ClientOpen(const char* domain, int isFile)
 {
     ClientClose();
-    struct sockaddr_un address;
     sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-
     if(sockfd < 0)
-    {
         return -1;
-    }
 
+    printf("domain:%s isFile:%d\n", domain, isFile);
+
+    struct sockaddr_un address;
     address.sun_family = AF_UNIX;
-    strcpy (address.sun_path, domain);
-
-    int result = connect (sockfd, (struct sockaddr *)&address, sizeof (address));
+    address.sun_path[0] = 0;
+    strncpy(address.sun_path+!isFile, domain, UNIX_PATH_MAX-1);
+    int address_len = isFile ? sizeof(address) : sizeof(address.sun_family) + strlen(domain) + 1;
+    int result = connect(sockfd, (struct sockaddr *)&address, address_len);
     if(result < 0)
     {
         ClientClose();
@@ -61,17 +60,23 @@ static void* ClientRun(void* arg)
     ClientClose();
 }
 
-int ClientStart(MesgCb callback)
+int ClientStart(MesgCb callback, const char* domain, int isFile)
 {
-    ClientOpen(DOMAIN, strlen(DOMAIN));
+    ClientOpen(domain, isFile);
     if(sockfd >= 0 && callback)
     {
-        pthread_t tid;
         onMessage = callback;
         int err = pthread_create(&tid, NULL, ClientRun, NULL);
         if(err < 0)
             ClientClose();
     }
     return sockfd;
+}
+
+
+int ClientStop()
+{
+    ClientClose();
+    pthread_join(tid, NULL);
 }
 

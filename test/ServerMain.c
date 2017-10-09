@@ -2,11 +2,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#define DOMAIN "/tmp/server_socket"
-
 int main()
 {
-    void* obj = newServer(DOMAIN, strlen(DOMAIN));
+    void* obj = NewServerSimple();
     while(1)
     {
         char c = getchar();
@@ -18,5 +16,5 @@ int main()
         buff[len++] = c;
         Broadcast(obj, buff, len+1);
     }
-    delServer(obj);
+    DelServer(obj);
 }

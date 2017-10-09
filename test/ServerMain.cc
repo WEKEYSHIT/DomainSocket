@@ -1,12 +1,10 @@
 #include "Server.h"
 
-#define DOMAIN "/tmp/server_socket"
-
 using namespace std;
 
 int main(int argc, char* argv[])
 {
-    Server server(DOMAIN);
+    Server server;
     while(1)
     {
         char c = getchar();
