@@ -27,16 +27,27 @@ int Server::Open(const string& path, bool isFile)
     server_address.sun_family = AF_UNIX;
     server_address.sun_path[0] = 0;
     strncpy(server_address.sun_path+!isFile, domain, UNIX_PATH_MAX-1);
-    cout << "fd:" << server_sockfd << " isFile:" << isFile << " domain:" << domain << endl;
     int address_len = sizeof(server_address.sun_family) + strlen(domain) + 1;
     if(isFile)
     {
         address_len = sizeof(server_address);
         unlink(domain);
     }
-    int b=::bind (server_sockfd, (struct sockaddr *)&server_address, address_len);
-    int l=::listen (server_sockfd, 5);
-    cout << "b:" << b << " l:" << l << endl;
+    int ret =::bind (server_sockfd, (struct sockaddr *)&server_address, address_len);
+    if(ret < 0)
+    {
+        perror("bind error");
+        ::close(server_sockfd);
+        return -1;
+    }
+
+    ret =::listen (server_sockfd, 5);
+    if(ret < 0)
+    {
+        perror("listen error");
+        ::close(server_sockfd);
+        return -1;
+    }
     return server_sockfd;
 }
 
@@ -59,9 +70,12 @@ void Server::Loop()
 void Server::LoopStart()
 {
     sockFd = Open(domainPath, isFile);
-    isRun = true;
+    if(sockFd >= 0)
+    {
+        isRun = true;
 //    Loop();
-    thrd = std::thread(thrdRun<Server, &Server::Loop>, this);
+        thrd = std::thread(thrdRun<Server, &Server::Loop>, this);
+    }
 }
 
 void Server::LoopStop()
@@ -69,7 +83,8 @@ void Server::LoopStop()
     isRun = false;
     ::close(sockFd);
     sockFd = -1;
-    thrd.join();
+    if(thrd.joinable())
+        thrd.join();
 }
 
 void Server::Broadcast(const string& data)

@@ -2,7 +2,7 @@
 #include <stdio.h>
 
 int err = 0;
-void onMessage(unsigned char* message, int mesgLen)
+void onMessage(void* userdata, unsigned char* message, int mesgLen)
 {
     printf("---%s: len %d\n",__FUNCTION__, mesgLen);
     if(mesgLen < 0)
@@ -23,7 +23,17 @@ void loop()
 #if 1
 int main()
 {
-    while(ClientStartSimple(onMessage) < 0) sleep(1);
+    while(1)
+    {
+        void* client = ClientStartSimple(onMessage);
+        if(ClientFd(client) < 0)
+        {
+            ClientStop(client);
+            sleep(1);
+            continue;
+        }
+        break;
+    }
     loop();
 }
 #else

@@ -2,6 +2,7 @@
 #define __CLIENT_H__
 
 #include "Domain.h"
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -9,8 +10,10 @@ extern "C" {
 
 //参数1:收到的二维码解码数据
 //参数2:二维码数据的长度
-typedef void (*MesgCb)(unsigned char*, int);
-int ClientStart(MesgCb callback, const char* domain, int isFile);
+typedef void (*MesgCb)(void*, unsigned char*, int);
+int ClientFd(void*);
+void* ClientStart(MesgCb callback, void* userdata, const char* domain, int isFile);
+void ClientStop(void*);
 
 /*  与扫码服务建立通信通道，返回通道的文件描述符。通道一次传输一包完整数据。
  *  参数:onMessage 回调函数。
@@ -19,9 +22,9 @@ int ClientStart(MesgCb callback, const char* domain, int isFile);
 *   返回: <0 : 错误
           >=0: 文件描述符
 **/
-static inline int ClientStartSimple(MesgCb callback)
+static inline void* ClientStartSimple(MesgCb callback)
 {
-    return ClientStart(callback, DEF_DOMAIN, DEF_TYPE);
+    return ClientStart(callback, NULL, DEF_DOMAIN, DEF_TYPE);
 }
 
 

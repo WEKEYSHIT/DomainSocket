@@ -6,30 +6,60 @@
 #include "CommonDef.h"
 #include "Client.h"
 
-static MesgCb onMessage = NULL;
-static volatile int sockfd = -1;
-static pthread_t tid = -1;
+#define PUBLIC
+#define PRIVATE static
 
-static void ClientClose()
+typedef struct
 {
-    if(sockfd >= 0)
+    int sockfd;
+    int joinable;
+    pthread_t tid;
+    MesgCb onMessage;
+    void* userdata;
+}Client;
+
+//#define CONSTRUCTOR(STRUCT, OBJ) STRUCT##_Constructor(OBJ) 
+#define CONSTRUCTOR(STRUCT, OBJ)  
+#define DESTRUCTOR(STRUCT, OBJ) STRUCT##_Destructor(OBJ)
+
+#define new(STRUCT) ({                                          \
+        STRUCT* obj = malloc(sizeof(STRUCT));                   \
+        CONSTRUCTOR(STRUCT, obj);                               \
+        obj;                                                    \
+    })
+#define del(STRUCT,OBJ) {DESTRUCTOR(STRUCT,OBJ);free(OBJ);}
+
+PRIVATE void ClientClose(Client* this)
+{
+    if(this->sockfd >= 0)
     {
-        close(sockfd);
-        sockfd = -1;
-        if(onMessage)
-            onMessage(NULL, -1);
-        onMessage = NULL;
+        close(this->sockfd);
+        this->sockfd = -1;
+        if(this->onMessage)
+            this->onMessage(&this->userdata, NULL, -1);
+        this->onMessage = NULL;
     }
 }
 
-static int ClientOpen(const char* domain, int isFile)
+PRIVATE void Client_Constructor(Client* this)
 {
-    ClientClose();
-    sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
-    if(sockfd < 0)
-        return -1;
+    this->sockfd = -1;
+    this->onMessage = NULL;
+    this->joinable = 0;
+}
 
-    printf("domain:%s isFile:%d\n", domain, isFile);
+PRIVATE void Client_Destructor(Client* this)
+{
+    ClientClose(this);
+    if(this->joinable)
+        pthread_join(this->tid, NULL);
+}
+
+PRIVATE void ClientOpen(Client* this, const char* domain, int isFile)
+{
+    int sockfd = this->sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    if(sockfd < 0)
+        return;
 
     struct sockaddr_un address;
     address.sun_family = AF_UNIX;
@@ -39,44 +69,56 @@ static int ClientOpen(const char* domain, int isFile)
     int result = connect(sockfd, (struct sockaddr *)&address, address_len);
     if(result < 0)
     {
-        ClientClose();
-        return -1;
+        perror(domain);
+        ClientClose(this);
     }
-    return sockfd;
 }
 
-static void* ClientRun(void* arg)
+PUBLIC int ClientFd(void* this)
 {
+    return this?((Client*)this)->sockfd:-1;
+}
+
+PRIVATE void* ClientRun(void* arg)
+{
+    Client* this = arg;
     unsigned char buff[1024];
-    while(onMessage)
+    while(this->onMessage)
     {
-        int len = read(sockfd, buff, sizeof(buff));
+        int len = read(this->sockfd, buff, sizeof(buff));
         if(len < 0)
             continue;
         if(len == 0)
             break;
-        onMessage(buff, len);
+        this->onMessage(this->userdata, buff, len);
     }
-    ClientClose();
+    ClientClose(this);
 }
 
-int ClientStart(MesgCb callback, const char* domain, int isFile)
+PUBLIC void* ClientStart(MesgCb callback, void* userdata, const char* domain, int isFile)
 {
-    ClientOpen(domain, isFile);
-    if(sockfd >= 0 && callback)
+    if(domain == NULL)
     {
-        onMessage = callback;
-        int err = pthread_create(&tid, NULL, ClientRun, NULL);
-        if(err < 0)
-            ClientClose();
+        fprintf(stderr,"domain is NULL!\n");
+        exit(-1);
     }
-    return sockfd;
+    Client* this = new(Client);
+    this->userdata = userdata;
+    ClientOpen(this, domain, isFile);
+    if(this->sockfd >= 0 && callback)
+    {
+        this->onMessage = callback;
+        int err = pthread_create(&this->tid, NULL, ClientRun, this);
+        this->joinable = 0 == err;
+        if(err < 0)
+            ClientClose(this);
+    }
+    return this;
 }
 
 
-int ClientStop()
+PUBLIC void ClientStop(void* this)
 {
-    ClientClose();
-    pthread_join(tid, NULL);
+    if(this) del(Client, (Client*)this);
 }
 

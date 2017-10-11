@@ -1,14 +1,15 @@
 #include "Client++.h"
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <iostream>
 
 using namespace std;
 
 int err = 0;
-static void onMessage(unsigned char* message, int mesgLen)
+void onMessage(void* userdata, unsigned char* message, int mesgLen)
 {
-    printf("---%s: len %d\n",__FUNCTION__, mesgLen);
+    printf("%s:%p len %d\n",__FUNCTION__, userdata, mesgLen);
     if(mesgLen < 0)
     {
         err = 1;
@@ -25,21 +26,35 @@ class Test
 public:
     Test()
     {
-        for( ; Client::Fd() < 0; sleep(1))
+        for( ; client1.Fd() < 0; sleep(1))
         {
         #if 1
-            Client::Start<Test, &Test::onMessage>(this);
+            client1.Start<Test, &Test::onMessage>(this, "test1");
         #else
-            Client::start(::onMessage);
+            client1.Start<&::onMessage>();
         #endif
         }
+        for( ; client2.Fd() < 0; sleep(1))
+        {
+        #if 1
+            client2.Start<Test, &Test::onMessage>(this, "test2");
+        #else
+            client2.Start<&::onMessage>();
+        #endif
+        }
+        printf("client1:%p client2:%p\n", &client1, &client2);
     }
     void loop(){while(!err) sleep(1);}
 
 private:
-    void onMessage(unsigned char* message, int mesgLen)
+    char buff[1024];
+    Client client1;
+    Client client2;
+    void onMessage(Client* c, unsigned char* message, int mesgLen)
     {
-        ::onMessage(message, mesgLen);
+        printf("--client:%p\n", c); 
+        memcpy(buff, message, mesgLen);
+        ::onMessage(c->userdata(), message, mesgLen);
     }
 
 };

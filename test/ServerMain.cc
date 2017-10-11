@@ -4,15 +4,18 @@ using namespace std;
 
 int main(int argc, char* argv[])
 {
-    Server server;
+    Server server1("test1");
+    Server server2("test2");
     while(1)
     {
         char c = getchar();
         if(c == 'q')
             break;
-        printf("--%02x\n",(unsigned char)c);
-        server.Broadcast(string("123456")+c);
+        server1.Broadcast(string("123456")+c);
+        server2.Broadcast(string("123456")+c);
     }
-    server.LoopStop();
+    server1.LoopStop();
+    server2.LoopStop();
     return 0;
 }
+
