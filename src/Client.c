@@ -150,9 +150,7 @@ PRIVATE void ClientLoopExit(int fd)
     if(!loopRun)
     {
         loop_exit();
-        printf("1\n");
         pthread_join(tid, NULL);
-        printf("j1\n");
     }
 }
 
