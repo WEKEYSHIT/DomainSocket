@@ -6,7 +6,7 @@
 class Client
 {
 private:
-    void* clientObj;
+    ClientP clientObj;
     void* data;
 
     template<class T, void (T::*method)(Client*, unsigned char*, int)>
@@ -16,41 +16,40 @@ private:
         (static_cast<T*>(obj->data)->*method)(obj, mesg, mesgLen);
     }
 
-    inline void _rset(MesgCb callback, void* userdata, const char* domain, int isFile)
+    inline bool _rset(MesgCb callback, void* userdata, const char* domain, int isFile)
     {
-        ClientStop(clientObj);
-        clientObj = ClientStart(callback, userdata, domain, isFile);
+        ClientExit(clientObj);
+        clientObj = ClientOpen(callback, userdata, domain, isFile);
+        return clientObj != NULL;
     }
 
-    inline void _set(const void* userdata, MesgCb cbk, const char* domain, bool isFile)
+    inline bool _set(const void* userdata, MesgCb cbk, const char* domain, bool isFile)
     {
         data = const_cast<void*>(userdata);
-        _rset(cbk, this, domain, isFile);
+        return _rset(cbk, this, domain, isFile);
     }
 
 public:
     inline Client():clientObj(nullptr),data(nullptr){}
-    inline ~Client(){ClientStop(clientObj);}
+    inline ~Client(){ClientExit(clientObj);}
 
     template<class T, void (T::*method)(Client*, unsigned char*, int)>
-    inline void Start(const T* object, const char* domain = DEF_DOMAIN, bool isFile = DEF_TYPE)
+    inline bool Set(const T* object, const char* domain = DEF_DOMAIN, bool isFile = DEF_TYPE)
     {
-        _set(object, onMessage<T, method>, domain, isFile);
+        return _set(object, onMessage<T, method>, domain, isFile);
     }
 
     template<void (*method)(Client*, unsigned char*, int)>
-    inline void Start(void* userdata = nullptr, const char* domain =DEF_DOMAIN , bool isFile = DEF_TYPE)
+    inline bool Set(void* userdata = nullptr, const char* domain =DEF_DOMAIN , bool isFile = DEF_TYPE)
     {
-        _set(userdata, method, domain, isFile);
+        return _set(userdata, method, domain, isFile);
     }
 
     template<void (*method)(void*, unsigned char*, int)>
-    inline void Start(void* userdata = nullptr, const char* domain =DEF_DOMAIN , bool isFile = DEF_TYPE)
+    inline bool Set(void* userdata = nullptr, const char* domain =DEF_DOMAIN , bool isFile = DEF_TYPE)
     {
-        _rset(method, userdata, domain, isFile);
+        return _rset(method, userdata, domain, isFile);
     }
-
-    inline int Fd(){return ClientFd(clientObj);}
     inline void* userdata(){return this->data;}
 };
 

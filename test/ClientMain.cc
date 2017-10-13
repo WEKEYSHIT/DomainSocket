@@ -26,23 +26,10 @@ class Test
 public:
     Test()
     {
-        for( ; client1.Fd() < 0; sleep(1))
-        {
-        #if 1
-            client1.Start<Test, &Test::onMessage>(this, "test1");
-        #else
-            client1.Start<&::onMessage>();
-        #endif
-        }
-        for( ; client2.Fd() < 0; sleep(1))
-        {
-        #if 1
-            client2.Start<Test, &Test::onMessage>(this, "test2");
-        #else
-            client2.Start<&::onMessage>();
-        #endif
-        }
-        printf("client1:%p client2:%p\n", &client1, &client2);
+        while(!client1.Set<Test, &Test::onMessage>(this, "test1"));
+        while(!client2.Set<Test, &Test::onMessage>(this, "test2"));
+        while(!client3.Set<&::onMessage>());
+        printf("client1:%p client2:%p client3:%p\n", &client1, &client2, &client3);
     }
     void loop(){while(!err) sleep(1);}
 
@@ -50,6 +37,7 @@ private:
     char buff[1024];
     Client client1;
     Client client2;
+    Client client3;
     void onMessage(Client* c, unsigned char* message, int mesgLen)
     {
         printf("--client:%p\n", c); 

@@ -4,7 +4,9 @@
 
 int main()
 {
-    void* obj = NewServerSimple();
+    void* obj1 = NewServer("Qrcode1", 0);
+    void* obj2 = NewServer("Qrcode2", 0);
+    void* obj3 = NewServerSimple();
     while(1)
     {
         char c = getchar();
@@ -14,7 +16,12 @@ int main()
         char buff[] = "123456\0\0";
         int len = strlen(buff);
         buff[len++] = c;
-        Broadcast(obj, buff, len+1);
+        Broadcast(obj1, buff, len+1);
+        Broadcast(obj2, buff, len+1);
+        Broadcast(obj3, buff, len+1);
     }
-    DelServer(obj);
+    DelServer(obj1);
+    DelServer(obj2);
+    DelServer(obj3);
 }
+

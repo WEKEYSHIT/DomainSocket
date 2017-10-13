@@ -1,22 +1,29 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <pthread.h>
 
 #include "CommonDef.h"
 #include "Client.h"
+#include "ioManager.h"
 
 #define PUBLIC
 #define PRIVATE static
+#define STATIC
 
 typedef struct
 {
     int sockfd;
-    int joinable;
-    pthread_t tid;
     MesgCb onMessage;
     void* userdata;
+    int error;
 }Client;
+PRIVATE pthread_t tid;
+PRIVATE int volatile loopRun = 0;
+
+PRIVATE void ClientLoopStart(int fd, void* data);
+PRIVATE void ClientLoopExit(int fd);
 
 //#define CONSTRUCTOR(STRUCT, OBJ) STRUCT##_Constructor(OBJ) 
 #define CONSTRUCTOR(STRUCT, OBJ)  
@@ -33,11 +40,11 @@ PRIVATE void ClientClose(Client* this)
 {
     if(this->sockfd >= 0)
     {
+        ClientLoopExit(this->sockfd);
         close(this->sockfd);
         this->sockfd = -1;
-        if(this->onMessage)
-            this->onMessage(&this->userdata, NULL, -1);
-        this->onMessage = NULL;
+        if(this->error)
+            this->onMessage(&this->userdata, NULL, this->error);
     }
 }
 
@@ -45,21 +52,22 @@ PRIVATE void Client_Constructor(Client* this)
 {
     this->sockfd = -1;
     this->onMessage = NULL;
-    this->joinable = 0;
+    this->error = 0;
 }
 
 PRIVATE void Client_Destructor(Client* this)
 {
     ClientClose(this);
-    if(this->joinable)
-        pthread_join(this->tid, NULL);
 }
 
-PRIVATE void ClientOpen(Client* this, const char* domain, int isFile)
+PRIVATE int SocketOpen(const char* domain, int isFile)
 {
-    int sockfd = this->sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    int sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
     if(sockfd < 0)
-        return;
+    {
+        perror("create socket fail");
+        return -1;
+    }
 
     struct sockaddr_un address;
     address.sun_family = AF_UNIX;
@@ -70,55 +78,81 @@ PRIVATE void ClientOpen(Client* this, const char* domain, int isFile)
     if(result < 0)
     {
         perror(domain);
-        ClientClose(this);
+        close(sockfd);
+        sockfd = -1;
     }
+    return sockfd;
 }
 
-PUBLIC int ClientFd(void* this)
+PRIVATE void ClientOnMessage(void* obj)
 {
-    return this?((Client*)this)->sockfd:-1;
-}
-
-PRIVATE void* ClientRun(void* arg)
-{
-    Client* this = arg;
+    Client* this = (Client*)obj;
     unsigned char buff[1024];
-    while(this->onMessage)
+    int len = read(this->sockfd, buff, sizeof(buff));
+    if(len < 0)
     {
-        int len = read(this->sockfd, buff, sizeof(buff));
-        if(len < 0)
-            continue;
-        if(len == 0)
-            break;
-        this->onMessage(this->userdata, buff, len);
+        perror(__FUNCTION__);
+        return;
     }
-    ClientClose(this);
+    if(len == 0)
+    {
+        this->error = -1;
+        return ClientClose(this);
+    }
+    this->onMessage(this->userdata, buff, len);
 }
 
-PUBLIC void* ClientStart(MesgCb callback, void* userdata, const char* domain, int isFile)
+PUBLIC void* ClientOpen(MesgCb callback, void* userdata, const char* domain, int isFile)
 {
-    if(domain == NULL)
+    if(domain == NULL || callback == NULL)
     {
-        fprintf(stderr,"domain is NULL!\n");
+        fprintf(stderr,"domain(%p) or callback(%p) is NULL!\n", domain, callback);
         exit(-1);
     }
+    int fd = SocketOpen(domain, isFile);
+    if(fd < 0) return NULL;
     Client* this = new(Client);
+    this->sockfd = fd;
     this->userdata = userdata;
-    ClientOpen(this, domain, isFile);
-    if(this->sockfd >= 0 && callback)
-    {
-        this->onMessage = callback;
-        int err = pthread_create(&this->tid, NULL, ClientRun, this);
-        this->joinable = 0 == err;
-        if(err < 0)
-            ClientClose(this);
-    }
+    this->onMessage = callback;
+    ClientLoopStart(this->sockfd, this);
     return this;
 }
 
-
-PUBLIC void ClientStop(void* this)
+PUBLIC void ClientExit(void* this)
 {
     if(this) del(Client, (Client*)this);
+}
+
+PRIVATE void* ClientLoopRun(void* arg)
+{
+    loop_event(ClientOnMessage);
+}
+
+PRIVATE void ClientLoopStart(int fd, void* data)
+{
+    if(loopRun++) goto end;
+    loop_init();
+    if(pthread_create(&tid, NULL, ClientLoopRun, NULL) < 0)
+    {
+        perror(__FUNCTION__);
+        exit(-1);
+    }
+end:
+    add_event(fd, data);
+}
+
+PRIVATE void ClientLoopExit(int fd)
+{
+    if(!loopRun) return;
+    del_event(fd);
+    loopRun--;
+    if(!loopRun)
+    {
+        loop_exit();
+        printf("1\n");
+        pthread_join(tid, NULL);
+        printf("j1\n");
+    }
 }
 
