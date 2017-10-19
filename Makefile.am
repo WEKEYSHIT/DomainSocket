@@ -1,4 +1,4 @@
-SUBDIRS=src
+SUBDIRS=src . test net
 
 pack:
 	@mkdir -p outlibs/client >/dev/null 2>&1 ; cp src/incs/Client.h  src/incs/Client++.h src/incs/Domain.h  src/libClient.a outlibs/client

@@ -25,9 +25,9 @@ void ClientExit(ClientP);
  *          其它:建立通道，并在读取消息后通过回调函数通知应用程序。
  *  返回: ClientP
 **/
-static inline ClientP ClientOpenSimple(MesgCb callback)
+static inline void ClientOpenSimple(MesgCb callback)
 {
-    return ClientOpen(callback, NULL, DEF_DOMAIN, DEF_TYPE);
+    while(ClientOpen(callback, NULL, DEF_DOMAIN, DEF_TYPE) == NULL);
 }
 
 

@@ -28,5 +28,6 @@ AC_CHECK_FUNCS([socket])
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
-                 test/Makefile])
+                 test/Makefile
+                 net/Makefile])
 AC_OUTPUT
